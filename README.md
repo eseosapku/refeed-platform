@@ -35,6 +35,22 @@
 - **Activity Monitoring**: Real-time activity feed
 - **Manual Controls**: Trigger matchmaking and manage data
 - **Export Capabilities**: Download data for analysis
+- **CSV Downloads**: Export food desert data in CSV format
+- **Kaggle Integration**: Real dataset management and processing
+
+## 📈 Data Integration
+
+### Real Dataset Support
+- **USDA Food Access Research Atlas**: 9,245+ food desert areas at census tract level
+- **Kaggle Integration**: Automated download and processing of authoritative datasets
+- **CSV Export**: Download comprehensive food desert data with demographics
+- **Data Source Toggle**: Switch between mock and real data in the UI
+
+### Supported Datasets
+- Food Access & Food Deserts (USDA)
+- US Fruit & Vegetable Prices (Historical 2013-2022)
+- Global Food Prices Database (World Food Programme)
+- Rwanda Food Prices Dataset
 
 ## 🛠️ Tech Stack
 
@@ -81,22 +97,27 @@
    ```bash
    cp .env.local.example .env.local
    ```
-   
-   Update `.env.local` with your Firebase configuration:
-   ```env
-   NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-   # ... other Firebase configs
-   ```
 
-4. **Run Development Server**
+4. **Start development server**
    ```bash
    npm run dev
    ```
 
-5. **Open Application**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+5. **For real data integration** (optional)
+   - See [SETUP.md](./SETUP.md) for detailed Kaggle API configuration
+   - Download datasets via Admin panel (`/admin`)
+   - Toggle "Real Data" mode in the map view
+
+6. **Access the application**
+   - Open `http://localhost:3000`
+   - Admin dashboard: `http://localhost:3000/admin`
+   - Interactive map: `http://localhost:3000/map`
+
+### Quick Demo
+1. Visit the map at `/map`
+2. Toggle between "Mock Data" and "Real Data" modes  
+3. Download food desert data as CSV
+4. Explore the admin dashboard for dataset management
 
 ## 📱 Usage Guide
 
