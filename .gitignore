@@ -36,3 +36,12 @@ next-env.d.ts
 .firebase/
 firebase-debug.log
 firestore-debug.log
+
+# Kaggle Data Files (too large for GitHub)
+data/kaggle/*.csv
+data/kaggle/**/*.csv
+data/kaggle/**/*.xlsx
+data/kaggle/**/*.xls
+
+# Keep processed data but ignore raw downloads
+!data/kaggle/processed-*.json
