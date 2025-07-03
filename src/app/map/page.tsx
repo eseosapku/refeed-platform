@@ -7,6 +7,7 @@ import { Search, Upload, Filter, Download, MapPin, Database, Zap } from 'lucide-
 import LiveDataDashboard from '@/components/LiveDataDashboard'
 import DataCredibilityIndicator from '@/components/DataCredibilityIndicator'
 import { FarmingContainer } from '@/types'
+import { verticalFarmingService } from '@/lib/verticalFarmingService'
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(
@@ -69,88 +70,97 @@ const MapPage = () => {
   const [dataSource, setDataSource] = useState('Mock Data')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Load data from APIs
+  // Load data from APIs or mock data for static deployment
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true)
         
-        // Determine which API endpoints to use
-        const foodDesertsEndpoint = useRealData ? '/api/food-deserts-kaggle?kaggle=true' : '/api/food-deserts'
-        const donorsEndpoint = useRealData ? '/api/donors-real?real=true' : '/api/donors'
-        
-        // Fetch food deserts
-        const foodDesertsResponse = await fetch(foodDesertsEndpoint)
-        const foodDesertData = await foodDesertsResponse.json()
-        
-        if (foodDesertData.success) {
-          const transformedDeserts = foodDesertData.data.map((desert: any) => ({
-            id: desert.id,
-            name: desert.name,
-            country: desert.country,
-            coordinates: desert.polygon.coordinates[0].map(([lng, lat]: [number, number]) => [lat, lng]),
-            population: desert.population,
-            severity: desert.severity || 'medium',
-            cropType: desert.cropType,
-          }))
-          setFoodDeserts(transformedDeserts)
-          setDataSource(foodDesertData.dataSource || (useRealData ? 'Real Data' : 'Mock Data'))
-        } else {
-          console.error('Food deserts API error:', foodDesertData.error)
-          if (useRealData) {
-            // Fallback to mock data if real data fails
-            setUseRealData(false)
-            alert('Real data unavailable. Falling back to mock data. Check console for details.')
-          }
-        }
-
-        // Fetch donors
-        const donorsResponse = await fetch(donorsEndpoint)
-        const donorData = await donorsResponse.json()
-        
-        if (donorData.success) {
-          const transformedDonors = donorData.data.map((donor: any) => ({
-            id: donor.id,
-            name: donor.name,
-            type: donor.type,
-            position: [donor.location.lat, donor.location.lng],
-            isActive: donor.isActive,
-            capacity: donor.capacity,
-            availableItems: donor.availableItems,
-            exportCapability: donor.exportCapability,
-            credibilityScore: donor.credibilityScore,
-            dataSource: donor.dataSource,
-          }))
-          setDonors(transformedDonors)
-        } else {
-          console.error('Donors API error:', donorData.error)
-          if (useRealData) {
-            // Fallback to mock data if real data fails
-            setUseRealData(false)
-            alert('Real donor data unavailable. Falling back to mock data. Check console for details.')
-          }
-        }
-
-        // Fetch vertical farming containers
-        try {
-          const verticalFarmsResponse = await fetch('/api/vertical-farming?type=existing')
-          const verticalFarmData = await verticalFarmsResponse.json()
+        // For static deployment, use mock data directly
+        if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
+          // Static deployment - use mock data
+          const mockDeserts = getMockFoodDeserts()
+          const mockDonorsData = getMockDonors()
+          const mockVerticalFarms = await verticalFarmingService.getExistingContainers()
           
-          if (verticalFarmData.success) {
-            setVerticalFarms(verticalFarmData.data)
-          } else {
-            console.error('Vertical farms API error:', verticalFarmData.error)
+          setFoodDeserts(mockDeserts)
+          setDonors(mockDonorsData)
+          setVerticalFarms(mockVerticalFarms)
+          setDataSource('Mock Data (Static Deployment)')
+        } else {
+          // Local development - try API calls with fallback to mock data
+          try {
+            // Determine which API endpoints to use
+            const foodDesertsEndpoint = useRealData ? '/api/food-deserts-kaggle?kaggle=true' : '/api/food-deserts'
+            const donorsEndpoint = useRealData ? '/api/donors-real?real=true' : '/api/donors'
+            
+            // Fetch food deserts
+            const foodDesertsResponse = await fetch(foodDesertsEndpoint)
+            const foodDesertData = await foodDesertsResponse.json()
+            
+            if (foodDesertData.success) {
+              const transformedDeserts = foodDesertData.data.map((desert: any) => ({
+                id: desert.id,
+                name: desert.name,
+                country: desert.country,
+                coordinates: desert.polygon.coordinates[0].map(([lng, lat]: [number, number]) => [lat, lng]),
+                population: desert.population,
+                severity: desert.severity || 'medium',
+                cropType: desert.cropType,
+              }))
+              setFoodDeserts(transformedDeserts)
+              setDataSource(foodDesertData.dataSource || (useRealData ? 'Real Data' : 'Mock Data'))
+            } else {
+              throw new Error('Food deserts API failed')
+            }
+
+            // Fetch donors
+            const donorsResponse = await fetch(donorsEndpoint)
+            const donorData = await donorsResponse.json()
+            
+            if (donorData.success) {
+              const transformedDonors = donorData.data.map((donor: any) => ({
+                id: donor.id,
+                name: donor.name,
+                type: donor.type,
+                position: [donor.location.lat, donor.location.lng],
+                isActive: donor.isActive,
+                capacity: donor.capacity,
+                availableItems: donor.availableItems,
+                exportCapability: donor.exportCapability,
+                credibilityScore: donor.credibilityScore,
+                dataSource: donor.dataSource,
+              }))
+              setDonors(transformedDonors)
+            } else {
+              throw new Error('Donors API failed')
+            }
+
+            // Fetch vertical farming containers - use service directly
+            const verticalFarmData = await verticalFarmingService.getExistingContainers()
+            setVerticalFarms(verticalFarmData)
+            
+          } catch (apiError) {
+            console.error('API calls failed, falling back to mock data:', apiError)
+            // Fallback to mock data
+            const mockDeserts = getMockFoodDeserts()
+            const mockDonorsData = getMockDonors()
+            const mockVerticalFarms = await verticalFarmingService.getExistingContainers()
+            
+            setFoodDeserts(mockDeserts)
+            setDonors(mockDonorsData)
+            setVerticalFarms(mockVerticalFarms)
+            setDataSource('Mock Data (API Fallback)')
           }
-        } catch (error) {
-          console.error('Error loading vertical farms:', error)
         }
 
       } catch (error) {
         console.error('Error loading data:', error)
-        if (useRealData) {
-          setUseRealData(false)
-          alert('Real data APIs unavailable. Using mock data.')
-        }
+        // Final fallback to empty data
+        setFoodDeserts([])
+        setDonors([])
+        setVerticalFarms([])
+        setDataSource('Error - No Data')
       } finally {
         setIsLoading(false)
       }
@@ -373,6 +383,141 @@ const MapPage = () => {
       console.error('Error downloading CSV:', error)
       alert('Failed to download CSV file. Please try again.')
     }
+  }
+
+  // Mock data for static deployment
+  const getMockFoodDeserts = (): FoodDesertData[] => {
+    return [
+      {
+        id: 'detroit-downtown',
+        name: 'Detroit Downtown Food Desert',
+        country: 'USA',
+        coordinates: [
+          [42.3314, -83.0458],
+          [42.3400, -83.0400],
+          [42.3350, -83.0300],
+          [42.3250, -83.0350],
+          [42.3314, -83.0458]
+        ],
+        population: 12500,
+        severity: 'high'
+      },
+      {
+        id: 'chicago-south',
+        name: 'Chicago South Side Food Desert',
+        country: 'USA',
+        coordinates: [
+          [41.8781, -87.6298],
+          [41.8850, -87.6200],
+          [41.8800, -87.6100],
+          [41.8700, -87.6200],
+          [41.8781, -87.6298]
+        ],
+        population: 18000,
+        severity: 'high'
+      },
+      {
+        id: 'memphis-downtown',
+        name: 'Memphis Downtown Food Desert',
+        country: 'USA',
+        coordinates: [
+          [35.1495, -90.0490],
+          [35.1550, -90.0400],
+          [35.1500, -90.0350],
+          [35.1450, -90.0450],
+          [35.1495, -90.0490]
+        ],
+        population: 8900,
+        severity: 'high'
+      },
+      {
+        id: 'cleveland-east',
+        name: 'Cleveland East Side Food Desert',
+        country: 'USA',
+        coordinates: [
+          [41.4993, -81.6944],
+          [41.5050, -81.6850],
+          [41.5000, -81.6800],
+          [41.4950, -81.6900],
+          [41.4993, -81.6944]
+        ],
+        population: 15200,
+        severity: 'high'
+      },
+      {
+        id: 'phoenix-south',
+        name: 'South Phoenix Food Desert',
+        country: 'USA',
+        coordinates: [
+          [33.4484, -112.0740],
+          [33.4550, -112.0650],
+          [33.4500, -112.0600],
+          [33.4450, -112.0700],
+          [33.4484, -112.0740]
+        ],
+        population: 22000,
+        severity: 'high'
+      },
+      {
+        id: 'atlanta-southwest',
+        name: 'Southwest Atlanta Food Desert',
+        country: 'USA',
+        coordinates: [
+          [33.7490, -84.3880],
+          [33.7550, -84.3800],
+          [33.7500, -84.3750],
+          [33.7450, -84.3850],
+          [33.7490, -84.3880]
+        ],
+        population: 11200,
+        severity: 'high'
+      }
+    ]
+  }
+
+  const getMockDonors = (): DonorMarker[] => {
+    return [
+      {
+        id: 'donor-1',
+        name: 'Detroit Urban Farm',
+        type: 'farm',
+        position: [42.3314, -83.0458],
+        isActive: true,
+        capacity: '500 lbs/week',
+        availableItems: ['Fresh Vegetables', 'Herbs', 'Leafy Greens'],
+        exportCapability: false
+      },
+      {
+        id: 'donor-2',
+        name: 'Chicago Community Market',
+        type: 'supermarket',
+        position: [41.8781, -87.6298],
+        isActive: true,
+        capacity: '1000 lbs/week',
+        availableItems: ['Dairy', 'Produce', 'Canned Goods'],
+        exportCapability: true
+      },
+      {
+        id: 'donor-3',
+        name: 'Memphis Food Hub',
+        type: 'distributor',
+        position: [35.1495, -90.0490],
+        isActive: true,
+        capacity: '2000 lbs/week',
+        availableItems: ['Grains', 'Proteins', 'Vegetables'],
+        exportCapability: true
+      },
+      {
+        id: 'donor-4',
+        name: 'Cleveland Restaurant Group',
+        type: 'restaurant',
+        position: [41.4993, -81.6944],
+        isActive: true,
+        capacity: '300 lbs/week',
+        availableItems: ['Prepared Foods', 'Bread', 'Fruits'],
+        exportCapability: false
+      }
+    ]
   }
 
   return (

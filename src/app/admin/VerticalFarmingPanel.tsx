@@ -14,6 +14,7 @@ import {
   Clock,
   RefreshCw
 } from 'lucide-react'
+import { verticalFarmingService } from '@/lib/verticalFarmingService'
 
 interface FarmingContainer {
   id: string
@@ -61,16 +62,11 @@ const VerticalFarmingPanel = () => {
   const generateRecommendations = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/vertical-farming?action=recommendations')
-      const result = await response.json()
+      const recommendations = await verticalFarmingService.generateContainerRecommendations()
       
-      if (result.success) {
-        setContainers(result.data)
-        setShowRecommendations(true)
-        alert(`Generated ${result.data.length} vertical farming container recommendations!`)
-      } else {
-        alert('Failed to generate recommendations: ' + result.error)
-      }
+      setContainers(recommendations)
+      setShowRecommendations(true)
+      alert(`Generated ${recommendations.length} vertical farming container recommendations!`)
     } catch (error) {
       console.error('Error generating recommendations:', error)
       alert('Error generating container recommendations')
@@ -83,13 +79,10 @@ const VerticalFarmingPanel = () => {
   const loadExistingContainers = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/vertical-farming?action=existing')
-      const result = await response.json()
+      const existingContainers = await verticalFarmingService.getExistingContainers()
       
-      if (result.success) {
-        setContainers(result.data)
-        setShowRecommendations(false)
-      }
+      setContainers(existingContainers)
+      setShowRecommendations(false)
     } catch (error) {
       console.error('Error loading existing containers:', error)
     } finally {
@@ -100,26 +93,16 @@ const VerticalFarmingPanel = () => {
   // Save container configuration
   const saveContainer = async (container: FarmingContainer) => {
     try {
-      const response = await fetch('/api/vertical-farming', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'save-container',
-          container: { ...container, status: 'planned' }
-        })
-      })
-
-      const result = await response.json()
-      if (result.success) {
+      const success = await verticalFarmingService.saveContainer({ ...container, status: 'planned' })
+      
+      if (success) {
         alert('Container configuration saved successfully!')
       } else {
-        alert('Failed to save container: ' + result.error)
+        alert('Failed to save container')
       }
     } catch (error) {
       console.error('Error saving container:', error)
-      alert('Error saving container configuration')
+      alert('Error saving container')
     }
   }
 
