@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "export": "next build && next export"
+    "export": "next build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.7.0",

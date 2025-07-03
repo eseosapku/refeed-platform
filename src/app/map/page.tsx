@@ -75,30 +75,45 @@ const MapPage = () => {
     const loadData = async () => {
       try {
         setIsLoading(true)
+        console.log('🔄 Starting data loading...')
         
-        // For static deployment, use mock data directly
-        if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
-          // Static deployment - use mock data
-          const mockDeserts = getMockFoodDeserts()
-          const mockDonorsData = getMockDonors()
-          const mockVerticalFarms = await verticalFarmingService.getExistingContainers()
-          
-          setFoodDeserts(mockDeserts)
-          setDonors(mockDonorsData)
-          setVerticalFarms(mockVerticalFarms)
-          setDataSource('Mock Data (Static Deployment)')
-        } else {
-          // Local development - try API calls with fallback to mock data
+        // Check if we're in a static build environment
+        const isStaticBuild = typeof window === 'undefined' || !window.location.href.includes('localhost:3000')
+        
+        // Always load vertical farming containers first
+        const verticalFarmData = await verticalFarmingService.getExistingContainers()
+        console.log('🌱 Vertical farms loaded:', verticalFarmData.length)
+        setVerticalFarms(verticalFarmData)
+        
+        // Use mock data immediately in static builds or as fallback
+        const mockDeserts = getMockFoodDeserts()
+        const mockDonorsData = getMockDonors()
+        
+        console.log('📊 Mock data prepared:', { 
+          deserts: mockDeserts.length, 
+          donors: mockDonorsData.length 
+        })
+        
+        // Set mock data immediately for static builds
+        setFoodDeserts(mockDeserts)
+        setDonors(mockDonorsData)
+        setDataSource('Mock Data (Static Build)')
+        
+        // Only try API calls if we're in dev mode
+        if (!isStaticBuild && typeof window !== 'undefined') {
           try {
             // Determine which API endpoints to use
             const foodDesertsEndpoint = useRealData ? '/api/food-deserts-kaggle?kaggle=true' : '/api/food-deserts'
             const donorsEndpoint = useRealData ? '/api/donors-real?real=true' : '/api/donors'
+            
+            console.log('📡 Trying API endpoints:', { foodDesertsEndpoint, donorsEndpoint })
             
             // Fetch food deserts
             const foodDesertsResponse = await fetch(foodDesertsEndpoint)
             const foodDesertData = await foodDesertsResponse.json()
             
             if (foodDesertData.success) {
+              console.log('✅ Food deserts API success:', foodDesertData.data.length)
               const transformedDeserts = foodDesertData.data.map((desert: any) => ({
                 id: desert.id,
                 name: desert.name,
@@ -109,9 +124,7 @@ const MapPage = () => {
                 cropType: desert.cropType,
               }))
               setFoodDeserts(transformedDeserts)
-              setDataSource(foodDesertData.dataSource || (useRealData ? 'Real Data' : 'Mock Data'))
-            } else {
-              throw new Error('Food deserts API failed')
+              setDataSource(foodDesertData.dataSource || (useRealData ? 'Real Data' : 'API Data'))
             }
 
             // Fetch donors
@@ -119,6 +132,7 @@ const MapPage = () => {
             const donorData = await donorsResponse.json()
             
             if (donorData.success) {
+              console.log('✅ Donors API success:', donorData.data.length)
               const transformedDonors = donorData.data.map((donor: any) => ({
                 id: donor.id,
                 name: donor.name,
@@ -132,37 +146,43 @@ const MapPage = () => {
                 dataSource: donor.dataSource,
               }))
               setDonors(transformedDonors)
-            } else {
-              throw new Error('Donors API failed')
             }
-
-            // Fetch vertical farming containers - use service directly
-            const verticalFarmData = await verticalFarmingService.getExistingContainers()
-            setVerticalFarms(verticalFarmData)
             
           } catch (apiError) {
-            console.error('API calls failed, falling back to mock data:', apiError)
-            // Fallback to mock data
-            const mockDeserts = getMockFoodDeserts()
-            const mockDonorsData = getMockDonors()
-            const mockVerticalFarms = await verticalFarmingService.getExistingContainers()
-            
-            setFoodDeserts(mockDeserts)
-            setDonors(mockDonorsData)
-            setVerticalFarms(mockVerticalFarms)
+            console.warn('⚠️ API calls failed, keeping mock data:', apiError)
+            // Mock data is already set, just update data source
             setDataSource('Mock Data (API Fallback)')
           }
         }
 
       } catch (error) {
-        console.error('Error loading data:', error)
-        // Final fallback to empty data
-        setFoodDeserts([])
-        setDonors([])
-        setVerticalFarms([])
-        setDataSource('Error - No Data')
+        console.error('❌ Error loading data:', error)
+        // Final fallback to mock data
+        try {
+          const mockDeserts = getMockFoodDeserts()
+          const mockDonorsData = getMockDonors()
+          const mockVerticalFarms = await verticalFarmingService.getExistingContainers()
+          
+          console.log('🆘 Final fallback mock data:', { 
+            deserts: mockDeserts.length, 
+            donors: mockDonorsData.length,
+            farms: mockVerticalFarms.length
+          })
+          
+          setFoodDeserts(mockDeserts)
+          setDonors(mockDonorsData)
+          setVerticalFarms(mockVerticalFarms)
+          setDataSource('Mock Data (Error Fallback)')
+        } catch (fallbackError) {
+          console.error('💥 Even mock data failed:', fallbackError)
+          setFoodDeserts([])
+          setDonors([])
+          setVerticalFarms([])
+          setDataSource('Error - No Data')
+        }
       } finally {
         setIsLoading(false)
+        console.log('✅ Data loading complete')
       }
     }
 
@@ -471,6 +491,94 @@ const MapPage = () => {
         ],
         population: 11200,
         severity: 'high'
+      },
+      {
+        id: 'baltimore-west',
+        name: 'West Baltimore Food Desert',
+        country: 'USA',
+        coordinates: [
+          [39.2904, -76.6122],
+          [39.2950, -76.6050],
+          [39.2920, -76.6000],
+          [39.2880, -76.6080],
+          [39.2904, -76.6122]
+        ],
+        population: 16800,
+        severity: 'high'
+      },
+      {
+        id: 'milwaukee-north',
+        name: 'Milwaukee North Side Food Desert',
+        country: 'USA',
+        coordinates: [
+          [43.0389, -87.9065],
+          [43.0450, -87.9000],
+          [43.0420, -87.8950],
+          [43.0360, -87.9020],
+          [43.0389, -87.9065]
+        ],
+        population: 13400,
+        severity: 'high'
+      },
+      // Medium severity areas
+      {
+        id: 'sacramento-medium',
+        name: 'Sacramento Central',
+        country: 'USA',
+        coordinates: [
+          [38.5816, -121.4944],
+          [38.5870, -121.4880],
+          [38.5840, -121.4820],
+          [38.5780, -121.4900],
+          [38.5816, -121.4944]
+        ],
+        population: 9500,
+        severity: 'medium'
+      },
+      {
+        id: 'portland-medium',
+        name: 'Portland East Side',
+        country: 'USA',
+        coordinates: [
+          [45.5152, -122.6784],
+          [45.5200, -122.6720],
+          [45.5180, -122.6680],
+          [45.5130, -122.6740],
+          [45.5152, -122.6784]
+        ],
+        population: 7800,
+        severity: 'medium'
+      },
+      // Rwanda food sources
+      {
+        id: 'kigali-agriculture',
+        name: 'Kigali Agricultural Zone',
+        country: 'Rwanda',
+        coordinates: [
+          [-1.9441, 30.0619],
+          [-1.9380, 30.0680],
+          [-1.9420, 30.0750],
+          [-1.9480, 30.0680],
+          [-1.9441, 30.0619]
+        ],
+        population: 15000,
+        severity: 'food_source',
+        cropType: 'Coffee, Tea, Bananas'
+      },
+      {
+        id: 'butare-agriculture',
+        name: 'Butare Farming Region',
+        country: 'Rwanda',
+        coordinates: [
+          [-2.6037, 29.7394],
+          [-2.5980, 29.7450],
+          [-2.6020, 29.7520],
+          [-2.6080, 29.7460],
+          [-2.6037, 29.7394]
+        ],
+        population: 8500,
+        severity: 'food_source',
+        cropType: 'Maize, Beans, Sweet Potatoes'
       }
     ]
   }
@@ -516,6 +624,66 @@ const MapPage = () => {
         capacity: '300 lbs/week',
         availableItems: ['Prepared Foods', 'Bread', 'Fruits'],
         exportCapability: false
+      },
+      {
+        id: 'donor-5',
+        name: 'Phoenix Fresh Foods',
+        type: 'supermarket',
+        position: [33.4484, -112.0740],
+        isActive: true,
+        capacity: '1500 lbs/week',
+        availableItems: ['Fresh Produce', 'Packaged Goods', 'Frozen Items'],
+        exportCapability: true
+      },
+      {
+        id: 'donor-6',
+        name: 'Atlanta Farm Co-op',
+        type: 'farm',
+        position: [33.7490, -84.3880],
+        isActive: true,
+        capacity: '800 lbs/week',
+        availableItems: ['Seasonal Vegetables', 'Fruits', 'Herbs'],
+        exportCapability: false
+      },
+      {
+        id: 'donor-7',
+        name: 'Baltimore Distribution Center',
+        type: 'distributor',
+        position: [39.2904, -76.6122],
+        isActive: true,
+        capacity: '2500 lbs/week',
+        availableItems: ['Bulk Grains', 'Canned Goods', 'Dry Goods'],
+        exportCapability: true
+      },
+      {
+        id: 'donor-8',
+        name: 'Milwaukee Organic Farm',
+        type: 'farm',
+        position: [43.0389, -87.9065],
+        isActive: true,
+        capacity: '600 lbs/week',
+        availableItems: ['Organic Vegetables', 'Dairy Products', 'Eggs'],
+        exportCapability: false
+      },
+      {
+        id: 'donor-9',
+        name: 'Kigali Coffee Cooperative',
+        type: 'farm',
+        position: [-1.9441, 30.0619],
+        isActive: true,
+        capacity: '1200 lbs/week',
+        availableItems: ['Coffee Beans', 'Tea Leaves', 'Bananas'],
+        exportCapability: true
+      },
+      {
+        id: 'donor-10',
+        name: 'Butare Agricultural Center',
+        type: 'distributor',
+        position: [-2.6037, 29.7394],
+        isActive: true,
+        capacity: '1800 lbs/week',
+        availableItems: ['Maize', 'Beans', 'Sweet Potatoes', 'Cassava'],
+        exportCapability: true
       }
     ]
   }
