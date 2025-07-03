@@ -3,9 +3,10 @@
 import { useEffect, useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { Search, Upload, Filter, Download, MapPin, Database } from 'lucide-react'
+import { Search, Upload, Filter, Download, MapPin, Database, Zap } from 'lucide-react'
 import LiveDataDashboard from '@/components/LiveDataDashboard'
 import DataCredibilityIndicator from '@/components/DataCredibilityIndicator'
+import { FarmingContainer } from '@/types'
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(
@@ -57,9 +58,11 @@ interface DonorMarker {
 const MapPage = () => {
   const [foodDeserts, setFoodDeserts] = useState<FoodDesertData[]>([])
   const [donors, setDonors] = useState<DonorMarker[]>([])
+  const [verticalFarms, setVerticalFarms] = useState<FarmingContainer[]>([])
   const [selectedCountry, setSelectedCountry] = useState<'USA' | 'Rwanda' | 'all'>('all')
   const [showDonors, setShowDonors] = useState(true)
   const [showFoodDeserts, setShowFoodDeserts] = useState(true)
+  const [showVerticalFarms, setShowVerticalFarms] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [useRealData, setUseRealData] = useState(false)
@@ -126,6 +129,20 @@ const MapPage = () => {
             setUseRealData(false)
             alert('Real donor data unavailable. Falling back to mock data. Check console for details.')
           }
+        }
+
+        // Fetch vertical farming containers
+        try {
+          const verticalFarmsResponse = await fetch('/api/vertical-farming?type=existing')
+          const verticalFarmData = await verticalFarmsResponse.json()
+          
+          if (verticalFarmData.success) {
+            setVerticalFarms(verticalFarmData.data)
+          } else {
+            console.error('Vertical farms API error:', verticalFarmData.error)
+          }
+        } catch (error) {
+          console.error('Error loading vertical farms:', error)
         }
 
       } catch (error) {
@@ -221,6 +238,75 @@ const MapPage = () => {
       iconAnchor: [30, 60], // Adjusted anchor point
       popupAnchor: [0, -60], // Adjusted popup anchor
     })
+  }
+
+  const getVerticalFarmIcon = (type: string, status: string) => {
+    // Check if we're on the client side and Leaflet is available
+    if (typeof window === 'undefined') return null
+    
+    const L = require('leaflet')
+    
+    let iconColor = ''
+    let iconSymbol = ''
+    
+    // Color based on status
+    switch (status) {
+      case 'active':
+        iconColor = '#10b981' // Green for active
+        break
+      case 'planned':
+        iconColor = '#3b82f6' // Blue for planned
+        break
+      case 'maintenance':
+        iconColor = '#f59e0b' // Orange for maintenance
+        break
+      default:
+        iconColor = '#6b7280' // Gray as default
+    }
+    
+    // Symbol based on type (using text letters instead of emojis)
+    switch (type) {
+      case 'vertical_farm':
+        iconSymbol = 'VF'
+        break
+      case 'hydroponic':
+        iconSymbol = 'HY'
+        break
+      case 'aeroponic':
+        iconSymbol = 'AE'
+        break
+      default:
+        iconSymbol = 'VF'
+    }
+    
+    const svgString = `
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="16" cy="16" r="14" fill="${iconColor}" stroke="white" stroke-width="2"/>
+        <text x="16" y="20" text-anchor="middle" font-size="10" font-weight="bold" fill="white">${iconSymbol}</text>
+      </svg>
+    `
+    
+    const iconUrl = 'data:image/svg+xml;base64,' + btoa(svgString)
+    
+    return L.icon({
+      iconUrl: iconUrl,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16],
+    })
+  }
+
+  const getVerticalFarmStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return '#10b981' // Green
+      case 'planned':
+        return '#3b82f6' // Blue
+      case 'maintenance':
+        return '#f59e0b' // Orange
+      default:
+        return '#6b7280' // Gray
+    }
   }
 
   const filteredFoodDeserts = foodDeserts.filter(desert => {
@@ -410,6 +496,18 @@ const MapPage = () => {
             />
             <span className="text-sm text-gray-700">Show Donors</span>
           </label>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={showVerticalFarms}
+              onChange={(e) => setShowVerticalFarms(e.target.checked)}
+              className="mr-2 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700 flex items-center">
+              <Zap className="h-4 w-4 mr-1" />
+              Vertical Farms
+            </span>
+          </label>
         </div>
       </div>
 
@@ -514,6 +612,53 @@ const MapPage = () => {
                 </Popup>
               </Marker>
             ))}
+
+            {/* Vertical Farm Markers */}
+            {showVerticalFarms && verticalFarms.map((farm) => (
+              <Marker
+                key={farm.id}
+                position={farm.coordinates}
+                icon={getVerticalFarmIcon(farm.type, farm.status)}
+              >
+                <Popup>
+                  <div className="p-2">
+                    <h3 className="font-bold text-lg">{farm.name}</h3>
+                    <p className="text-sm text-gray-600">Type: {farm.type.replace('_', ' ').charAt(0).toUpperCase() + farm.type.replace('_', ' ').slice(1)}</p>
+                    <p className="text-sm">
+                      Status: <span 
+                        className="font-medium" 
+                        style={{ color: getVerticalFarmStatusColor(farm.status) }}
+                      >
+                        {farm.status.charAt(0).toUpperCase() + farm.status.slice(1)}
+                      </span>
+                    </p>
+                    <div className="mt-2 text-xs">
+                      <p className="font-medium text-gray-700">🌱 Capacity:</p>
+                      <p>Monthly yield: {farm.capacity.monthly_yield_kg}kg</p>
+                      <p>Crop types: {farm.capacity.crop_types}</p>
+                      <p>Cycles/year: {farm.capacity.growing_cycles_per_year}</p>
+                    </div>
+                    <div className="mt-2 text-xs">
+                      <p className="font-medium text-gray-700">📊 Impact:</p>
+                      <p>Population served: {farm.impact.population_served.toLocaleString()}</p>
+                      <p>Severity: {farm.impact.current_severity} → {farm.impact.projected_severity}</p>
+                      <p>Reduction: {farm.impact.reduction_percentage}%</p>
+                    </div>
+                    <div className="mt-2 text-xs">
+                      <p className="font-medium text-gray-700">🌾 Top Crops:</p>
+                      {farm.recommendations.slice(0, 3).map((rec, idx) => (
+                        <p key={idx}>{rec.crop} ({rec.suitability_score}% suitable)</p>
+                      ))}
+                    </div>
+                    <div className="mt-2 text-xs">
+                      <p className="font-medium text-gray-700">💰 Cost:</p>
+                      <p>Installation: ${farm.installation.cost_estimate.toLocaleString()}</p>
+                      <p>Annual maintenance: ${farm.installation.maintenance_cost_annual.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
           </MapContainer>
         )}
 
@@ -559,6 +704,21 @@ const MapPage = () => {
                 <span className="text-xs">🚚 Distributors</span>
               </div>
             </div>
+            <div>
+              <h5 className="font-semibold text-xs text-gray-700 mb-1">Vertical Farms</h5>
+              <div className="flex items-center mb-1">
+                <div className="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                <span className="text-xs">🏢 Active Containers</span>
+              </div>
+              <div className="flex items-center mb-1">
+                <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                <span className="text-xs">🌱 Planned Containers</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-amber-500 rounded-full mr-2"></div>
+                <span className="text-xs">🔧 Under Maintenance</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -589,6 +749,7 @@ const MapPage = () => {
               {filteredFoodDeserts.filter(d => d.country === 'Rwanda' && d.severity === 'food_source').length}
             </span></p>
             <p>🏪 Active Food Providers: <span className="font-medium text-blue-600">{filteredDonors.length}</span></p>
+            <p>🏢 Vertical Farms: <span className="font-medium text-purple-600">{verticalFarms.length}</span></p>
             <div className="pt-1 border-t mt-2">
               <p className="text-xs font-semibold text-gray-700 mb-1">Provider Breakdown:</p>
               <p>🌾 Farms: <span className="font-medium">{filteredDonors.filter(d => d.type === 'farm').length}</span></p>
@@ -596,6 +757,27 @@ const MapPage = () => {
               <p>🍽️ Restaurants: <span className="font-medium">{filteredDonors.filter(d => d.type === 'restaurant').length}</span></p>
               <p>🚚 Distributors: <span className="font-medium">{filteredDonors.filter(d => d.type === 'distributor').length}</span></p>
               <p>🌍 Export Ready: <span className="font-medium text-green-700">{filteredDonors.filter(d => d.exportCapability).length}</span></p>
+            </div>
+            <div className="pt-1 border-t mt-2">
+              <p className="text-xs font-semibold text-gray-700 mb-1">Vertical Farm Status:</p>
+              <p>🏢 Active: <span className="font-medium text-green-600">{verticalFarms.filter(f => f.status === 'active').length}</span></p>
+              <p>🌱 Planned: <span className="font-medium text-blue-600">{verticalFarms.filter(f => f.status === 'planned').length}</span></p>
+              <p>🔧 Maintenance: <span className="font-medium text-amber-600">{verticalFarms.filter(f => f.status === 'maintenance').length}</span></p>
+            </div>
+            <div className="pt-1 border-t mt-2">
+              <p className="text-xs font-semibold text-gray-700 mb-1">🌾 Vertical Farm Impact:</p>
+              <p className="text-gray-600">Total People Served:</p>
+              <p className="font-bold text-green-700">
+                {verticalFarms
+                  .reduce((total, farm) => total + farm.impact.population_served, 0)
+                  .toLocaleString()}
+              </p>
+              <p className="text-gray-600">Avg. Severity Reduction:</p>
+              <p className="font-bold text-green-700">
+                {verticalFarms.length > 0 ? 
+                  Math.round(verticalFarms.reduce((total, farm) => total + farm.impact.reduction_percentage, 0) / verticalFarms.length)
+                  : 0}%
+              </p>
             </div>
             <div className="pt-1 border-t mt-2 text-xs">
               <p className="text-gray-600">Total Population Affected:</p>

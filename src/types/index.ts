@@ -162,3 +162,39 @@ export interface MapMarker {
   };
   data: Donor | FoodDesert | Match;
 }
+
+export interface FarmingContainer {
+  id: string;
+  name: string;
+  type: 'vertical_farm' | 'hydroponic' | 'aeroponic';
+  coordinates: [number, number];
+  foodDesertId: string;
+  status: 'planned' | 'active' | 'maintenance';
+  capacity: {
+    monthly_yield_kg: number;
+    crop_types: number;
+    growing_cycles_per_year: number;
+  };
+  recommendations: CropRecommendation[];
+  impact: {
+    current_severity: 'high' | 'medium' | 'low';
+    projected_severity: 'high' | 'medium' | 'low';
+    population_served: number;
+    reduction_percentage: number;
+  };
+  installation: {
+    cost_estimate: number;
+    installation_time_weeks: number;
+    maintenance_cost_annual: number;
+  };
+}
+
+export interface CropRecommendation {
+  crop: string;
+  suitability_score: number; // 0-100
+  yield_per_cycle_kg: number;
+  growth_time_days: number;
+  nutritional_value: 'high' | 'medium' | 'low';
+  local_demand: 'high' | 'medium' | 'low';
+  reason: string;
+}

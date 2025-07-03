@@ -14,6 +14,7 @@ import {
   Activity
 } from 'lucide-react'
 import KaggleIntegrationPanel from './KaggleIntegrationPanel'
+import VerticalFarmingPanel from './VerticalFarmingPanel'
 
 interface DashboardStats {
   totalFoodDeserts: number
@@ -340,7 +341,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Kaggle Dataset Integration */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Kaggle Dataset Integration</h2>
             <p className="text-sm text-gray-600 mt-1">Manage real dataset downloads and processing</p>
@@ -348,6 +349,18 @@ const AdminDashboard = () => {
           
           <div className="p-6">
             <KaggleIntegrationPanel />
+          </div>
+        </div>
+
+        {/* Vertical Farming Container Management */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Vertical Farming Containers</h2>
+            <p className="text-sm text-gray-600 mt-1">AI-powered container placement for high-severity food deserts</p>
+          </div>
+          
+          <div className="p-6">
+            <VerticalFarmingPanel />
           </div>
         </div>
       </div>
